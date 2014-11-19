@@ -1,0 +1,242 @@
+body file control
+{
+      namespace => "cfdc_packages";
+}
+
+bundle agent from_list(runenv, metadata, pkgs_add, state)
+{
+##############################################################################
+## Standard template for Design Center 3.6.0 sketches.                      ##
+##############################################################################
+
+  vars:
+      "vars" slist => getindices(runenv);
+      "$(vars)" string => "$(runenv[$(vars)])";
+      # often you need a unique value for the current run through a
+      # bundle, especially if you use if_repaired and such.  The
+      # canon_prefix will give you that.
+      "canon_prefix" string => canonify("$(prefix)");
+      "dcbundle" string => concat("[$(metadata[name])] ", $(this.namespace), ':', $(this.bundle));
+      "prefixes" slist => { "show", "exec", "path" };
+
+    dc_verbose::
+      # pretty-print the authors and dependencies
+      "dependencies" string => format("%S", "metadata[depends]");
+      "authors" string => format("%S", "metadata[authors]");
+
+    not_test::
+      "exec_prefix" string => "", policy => "free";
+      "show_prefix" string => "", policy => "free";
+      "path_prefix" string => "", policy => "free";
+
+    dc_test::
+      "exec_prefix" string => "$(default:paths.echo) ", policy => "free";
+      "show_prefix" string => "$(default:paths.grep) . ", policy => "free";
+      "path_prefix" string => "/tmp", policy => "free";
+
+  classes:
+      "dc_$(vars)" expression => "$($(vars))";
+      "not_$(vars)" not => "$($(vars))";
+      "have_$(prefixes)_prefix" expression => isvariable("$(prefixes)_prefix");
+
+  reports:
+    dc_verbose::
+      "$(dcbundle): $(metadata[name]) license = $(metadata[license])";
+      "$(dcbundle): $(metadata[name]) dependencies = $(dependencies)";
+      "$(dcbundle): $(metadata[name]) version $(metadata[version]) by $(authors) starting up...";
+
+      "$(dcbundle): imported environment var '$(vars)' with value '$($(vars))'";
+
+      "$(dcbundle): imported environment class '$(vars)' because '$($(vars))' was true"
+      ifvarclass => "dc_$(vars)";
+
+      "$(dcbundle): the $(prefixes)_prefix is '$($(prefixes)_prefix)'"
+      ifvarclass => "have_$(prefixes)_prefix";
+
+    dc_verbose::
+      # use the "dc_verbose" context to show the sketch operation (for the user)
+      "$(dcbundle): running in verbose mode";
+    dc_test::
+       # use the "dc_test" context to help debug the sketch (for the developer)
+       "$(dcbundle): running in test mode";
+
+##############################################################################
+## end of template                                                          ##
+##############################################################################
+  classes:
+    "latest_wanted" expression => strcmp("addupdate", $(state));
+
+  methods:
+    not_test.latest_wanted::
+      "install" usebundle => default:package_latest($(pkgs_add));
+    not_test.!latest_wanted::
+      "install" usebundle => default:package_present($(pkgs_add));
+
+  reports:
+    dc_test::
+      "$(dcbundle): In test mode, simulating adding package $(pkgs_add)";
+}
+
+bundle agent from_file(runenv, metadata, file, state)
+{
+##############################################################################
+## Standard template for Design Center 3.6.0 sketches.                      ##
+##############################################################################
+
+  vars:
+      "vars" slist => getindices(runenv);
+      "$(vars)" string => "$(runenv[$(vars)])";
+      # often you need a unique value for the current run through a
+      # bundle, especially if you use if_repaired and such.  The
+      # canon_prefix will give you that.
+      "canon_prefix" string => canonify("$(prefix)");
+      "dcbundle" string => concat("[$(metadata[name])] ", $(this.namespace), ':', $(this.bundle));
+      "prefixes" slist => { "show", "exec", "path" };
+
+    dc_verbose::
+      # pretty-print the authors and dependencies
+      "dependencies" string => format("%S", "metadata[depends]");
+      "authors" string => format("%S", "metadata[authors]");
+
+    not_test::
+      "exec_prefix" string => "", policy => "free";
+      "show_prefix" string => "", policy => "free";
+      "path_prefix" string => "", policy => "free";
+
+    dc_test::
+      "exec_prefix" string => "$(default:paths.echo) ", policy => "free";
+      "show_prefix" string => "$(default:paths.grep) . ", policy => "free";
+      "path_prefix" string => "/tmp", policy => "free";
+
+  classes:
+      "dc_$(vars)" expression => "$($(vars))";
+      "not_$(vars)" not => "$($(vars))";
+      "have_$(prefixes)_prefix" expression => isvariable("$(prefixes)_prefix");
+
+  reports:
+    dc_verbose::
+      "$(dcbundle): $(metadata[name]) license = $(metadata[license])";
+      "$(dcbundle): $(metadata[name]) dependencies = $(dependencies)";
+      "$(dcbundle): $(metadata[name]) version $(metadata[version]) by $(authors) starting up...";
+
+      "$(dcbundle): imported environment var '$(vars)' with value '$($(vars))'";
+
+      "$(dcbundle): imported environment class '$(vars)' because '$($(vars))' was true"
+      ifvarclass => "dc_$(vars)";
+
+      "$(dcbundle): the $(prefixes)_prefix is '$($(prefixes)_prefix)'"
+      ifvarclass => "have_$(prefixes)_prefix";
+
+    dc_verbose::
+      # use the "dc_verbose" context to show the sketch operation (for the user)
+      "$(dcbundle): running in verbose mode";
+    dc_test::
+       # use the "dc_test" context to help debug the sketch (for the developer)
+       "$(dcbundle): running in test mode";
+
+##############################################################################
+## end of template                                                          ##
+##############################################################################
+  vars:
+      "todo" slist => readstringlist($(file), "#.*", "\n", 10000, 500000);
+
+  classes:
+      "have_todo" expression => isvariable("todo");
+
+  methods:
+    have_todo.not_test.latest_wanted::
+      "install" usebundle => default:package_latest($(todo));
+    have_todo.not_test.!latest_wanted::
+      "install" usebundle => default:package_present($(todo));
+
+  reports:
+    have_todo.dc_test::
+      "$(dcbundle): In test mode, simulating adding package $(todo)";
+    !have_todo::
+      "$(dcbundle): file $(file) could not be parsed to get the file list";
+}
+
+bundle agent from_url(runenv, metadata, url, state, retriever, spooldir)
+{
+##############################################################################
+## Standard template for Design Center 3.6.0 sketches.                      ##
+##############################################################################
+
+  vars:
+      "vars" slist => getindices(runenv);
+      "$(vars)" string => "$(runenv[$(vars)])";
+      # often you need a unique value for the current run through a
+      # bundle, especially if you use if_repaired and such.  The
+      # canon_prefix will give you that.
+      "canon_prefix" string => canonify("$(prefix)");
+      "dcbundle" string => concat("[$(metadata[name])] ", $(this.namespace), ':', $(this.bundle));
+      "prefixes" slist => { "show", "exec", "path" };
+
+    dc_verbose::
+      # pretty-print the authors and dependencies
+      "dependencies" string => format("%S", "metadata[depends]");
+      "authors" string => format("%S", "metadata[authors]");
+
+    not_test::
+      "exec_prefix" string => "", policy => "free";
+      "show_prefix" string => "", policy => "free";
+      "path_prefix" string => "", policy => "free";
+
+    dc_test::
+      "exec_prefix" string => "$(default:paths.echo) ", policy => "free";
+      "show_prefix" string => "$(default:paths.grep) . ", policy => "free";
+      "path_prefix" string => "/tmp", policy => "free";
+
+  classes:
+      "dc_$(vars)" expression => "$($(vars))";
+      "not_$(vars)" not => "$($(vars))";
+      "have_$(prefixes)_prefix" expression => isvariable("$(prefixes)_prefix");
+
+  reports:
+    dc_verbose::
+      "$(dcbundle): $(metadata[name]) license = $(metadata[license])";
+      "$(dcbundle): $(metadata[name]) dependencies = $(dependencies)";
+      "$(dcbundle): $(metadata[name]) version $(metadata[version]) by $(authors) starting up...";
+
+      "$(dcbundle): imported environment var '$(vars)' with value '$($(vars))'";
+
+      "$(dcbundle): imported environment class '$(vars)' because '$($(vars))' was true"
+      ifvarclass => "dc_$(vars)";
+
+      "$(dcbundle): the $(prefixes)_prefix is '$($(prefixes)_prefix)'"
+      ifvarclass => "have_$(prefixes)_prefix";
+
+    dc_verbose::
+      # use the "dc_verbose" context to show the sketch operation (for the user)
+      "$(dcbundle): running in verbose mode";
+    dc_test::
+       # use the "dc_test" context to help debug the sketch (for the developer)
+       "$(dcbundle): running in test mode";
+
+##############################################################################
+## end of template                                                          ##
+##############################################################################
+
+  vars:
+      "basename" string => lastnode($(url), "/");
+      "spoolfile" string => "$(spooldir)/$(basename)";
+
+  classes:
+      "have_file" expression => fileexists($(spoolfile));
+
+  commands:
+    have_exec_prefix::
+      "$(exec_prefix)$(retriever) > $(spoolfile)"
+      contain => default:in_shell,
+      classes => default:scoped_classes_generic("retrieve", "bundle");
+
+  methods:
+    not_test.have_file::
+      "install" usebundle => default:package_specific($(spoolfile), $(state), "0.0.0", "*");
+
+  reports:
+    have_file.dc_test::
+      "$(dcbundle): In test mode, simulating adding package $(spoolfile)";
+    !have_file.retrieve_reached::
+      "$(dcbundle): file $(spoolfile) could not be retrieved from $(url)";
+}
